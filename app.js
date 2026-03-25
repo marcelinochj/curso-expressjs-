@@ -1,6 +1,14 @@
 require('dotenv').config();
 const express = require('express');
+
+const { validateUser } = require('./utils/validation');
+
 const bodyParser = require('body-parser');
+
+const fs = require('fs');
+const path = require('path');
+const { error } = require('console');
+const usersFilePath = path.join(__dirname, 'users.json');
 
 const app = express();
 app.use(bodyParser.json());
@@ -15,8 +23,6 @@ app.get('/', (req, res) => {
     `);
 });
 
-
-
 app.get('/users/:id', (req, res) => {
     const userId = req.params.id;
     res.send(`Mostrar información del usuario ${userId}`)
@@ -28,7 +34,118 @@ app.get('/search/', (req, res) => {
     res.send({Cat: category, CurrentTerms:terms})
 });
 
+app.post('/form', (req, res) => {
+    const name = req.body.nombre || "Anonimo";
+    const email = req.body.email || "No proporcionado";
+
+    res.json({
+        message: 'Datos Recibidos',
+        nombre: name,
+        email: email
+    })
+});
+
+app.post('/api/data', (req, res) => {
+    const data = req.body;
+
+    if(!data || Object.keys(data).length === 0) {
+        return res.status(400).json({error: 'No se recibieron datos'});
+    };
+
+    res.status(200).json({
+        message: 'Datos recibidos',
+        data
+    });
+});
+
+app.get('/users', (req, res) => {
+  fs.readFile(usersFilePath, 'utf8', (error, data) => {
+    if (error) {
+      return res.status(500).json({
+        error: "Error con la conexión de datos"
+      });
+    }
+    const users = JSON.parse(data);
+    res.json(users);
+  });
+});
+
+app.post('/users', (req, res) => {
+    const newUser = req.body;
+    fs.readFile(usersFilePath, 'utf-8', (err, data) => {
+        if(err) {
+            return res.status(500).json({error: 'Algo salio mal'});
+        }
+       
+        const users = JSON.parse(data);
+
+        const validation = validateUser(newUser, users);
+
+        if (!validation.isValid){
+            return res.status(400).json({error: validation.errors});
+        }
+
+        users.push(newUser);
+
+        fs.writeFile(usersFilePath, JSON.stringify(users, null, 2), (err) => {
+            return res.status(500).json({error: 'Algo salio mal'})
+        })
+
+        res.status(201).json(newUser);
+    });
+});
+
+app.put('/users/:id', (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  const updateUser = req.body;
+  
+  // Leemos el archivo de usuarios
+  fs.readFile(usersFilePath, 'utf8', (err, data) => {
+    if (err) {
+      return res.status(500).json({ error: "Error con conexión de datos" });
+    }
+    
+    // Parseamos los datos JSON
+    let users = JSON.parse(data);
+    
+    // Actualizamos el usuario que coincida con el ID
+    users = users.map(user => {
+      return user.id === userId ? { ...user, ...updateUser } : user;
+    });
+    
+    // Guardamos los cambios en el archivo
+    fs.writeFile(usersFilePath, JSON.stringify(users, null, 2), (err) => {
+      if (err) {
+        return res.status(500).json({ error: "Error al actualizar el usuario" });
+      }
+      
+      // Respondemos con el usuario actualizado
+      res.json(updateUser);
+    });
+  });
+});
+
+app.delete('/users/:id', (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  
+  fs.readFile(usersFilePath, 'utf8', (err, data) => {
+    if (err) {
+      return res.status(500).json({ error: "Error con conexión de datos" });
+    }
+    
+    let users = JSON.parse(data);
+    users = users.filter(user => user.id !== userId);
+    
+    fs.writeFile(usersFilePath, JSON.stringify(users, null, 2), (err) => {
+      if (err) {
+        return res.status(500).json({ error: "Error al eliminar usuario" });
+      }
+      
+      res.status(204).send();
+    });
+  });
+});
+
 app.listen(PORT, () => {
     console.log(`servidor: http://localhost:${PORT}`);
 });
-
