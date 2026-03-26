@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const { PrismaClient } = require('./generated/prisma')
+const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient();
 
 const { validateUser } = require('./utils/validation');
