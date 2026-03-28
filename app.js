@@ -159,7 +159,7 @@ app.get('/error', (req, res, next) => {
 
 app.get('/db/users', async (req, res) => {
   try {
-    const users = await prisma.user.findFirst();
+    const users = await prisma.user.findMany();
     console.log(users);
     res.json(users);
   } catch (error) {
