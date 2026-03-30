@@ -2,10 +2,14 @@ require('dotenv').config();
 const express = require('express');
 const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient();
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken')
 
 const { validateUser } = require('./utils/validation');
 const LoggerMiddleware = require('./middlewares/logger')
 const errorHandler = require('./middlewares/errorHandler')
+const authenticateToken = require('./middlewares/auth')
+
 const bodyParser = require('body-parser');
 
 const fs = require('fs');
@@ -13,6 +17,7 @@ const path = require('path');
 const { error } = require('console');
 const { nextTick } = require('process');
 const console = require('console');
+const { JsonWebTokenError } = require('jsonwebtoken');
 const usersFilePath = path.join(__dirname, 'users.json');
 
 const app = express();
@@ -167,6 +172,27 @@ app.get('/db/users', async (req, res) => {
     res.status(500).json({ error: "Error al comunicarse con la base de datos" });
   }
 });
+
+app.get('/protected-route', authenticateToken, (req, res) => {
+  res.send('Esta ruta esta protegida.');
+})
+
+app.post('/register', async (req, res) => {
+  const {name, email, password} = req.body;
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const newUser = await prisma.user.create({
+    data:{
+      email,
+      password: hashedPassword,
+      name,
+      role : 'USER'
+    }
+  });
+
+  res.status(200).json({Message: 'User Registred Succefully'});
+});
+
 
 app.listen(PORT, () => {
     console.log(`servidor: http://localhost:${PORT}`);
