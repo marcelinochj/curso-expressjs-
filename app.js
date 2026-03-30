@@ -5,10 +5,10 @@ const prisma = new PrismaClient();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken')
 
-const { validateUser } = require('./utils/validation');
-const LoggerMiddleware = require('./middlewares/logger')
-const errorHandler = require('./middlewares/errorHandler')
-const authenticateToken = require('./middlewares/auth')
+const { validateUser } = require('./src/utils/validation');
+const LoggerMiddleware = require('./src/middlewares/logger')
+const errorHandler = require('./src/middlewares/errorHandler')
+const authenticateToken = require('./src/middlewares/auth')
 
 const bodyParser = require('body-parser');
 
@@ -192,6 +192,25 @@ app.post('/register', async (req, res) => {
 
   res.status(200).json({Message: 'User Registred Succefully'});
 });
+
+app.post('/login', async (req, res) => {
+  const {email, password} = req.body;
+  const user = await prisma.user.findUnique({where:{email}});
+
+  if (!user) return res.status(400).json('Invalid email or password');
+  const validPassword = await bcrypt.compare(password, user.password);
+
+  if (!validPassword) return res.status(400).json('Invalid email or password');
+
+  const token = jwt.sign({id: user.id, role: user.role},
+    process.env.JWT_SECRET,
+    {expiresIn: '1h'}
+  );
+
+  return res.status(201).json({token});
+
+
+})
 
 
 app.listen(PORT, () => {
